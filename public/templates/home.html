@@ -1,0 +1,18 @@
+{% extends "base-private.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block nav %}
+<a class="nav-link nav-btn active" aria-current="page" href="/home">Home</a>
+<a class="nav-link nav-btn" href="thoughts">My Thoughts</a>
+<a class="nav-link nav-btn" href="profile">Profile</a>
+<a class="nav-link nav-btn-logout" href="logout">Logout</a>
+{% endblock %}
+
+{% block main %}
+<h1>Welcome in, {{ user }}!</h1>
+<h1>{{ date }}</h1>
+<p class="lead">
+    <a href="new-thought" class="btn btn-lg btn-secondary fw-bold border-white bg-white">Write a thought</a>
+</p>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base-private.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block nav %}
+<a class="nav-link nav-btn" href="/home">Home</a>
+<a class="nav-link nav-btn" href="thoughts">My Thoughts</a>
+<a class="nav-link nav-btn active" aria-current="page" href="profile">Profile</a>
+<a class="nav-link nav-btn-logout" href="logout">Logout</a>
+{% endblock %}
+
+{% block main %}
+<h1><strong>Name:</strong> {{ user }}</h1>
+{% endblock %}

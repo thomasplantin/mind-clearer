@@ -1,0 +1,28 @@
+version: '3.2'
+
+
+services:
+
+  flask:
+    build: .
+    container_name: flask-container
+    command: python3 -u app.py
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    links:
+      - db
+
+  mongodb:
+    image: mongo:latest
+    # container_name: db-container
+    # hostname: mongo_host
+    environment:
+      MONGO_INITDB_DATABASE=mind_clearer_db
+      MONGO_INITDB_ROOT_USERNAME=root
+      MONGO_INITDB_ROOT_PASSWORD=pass
+    volumes:
+      - ./init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+    ports:
+      - 27017:27017
