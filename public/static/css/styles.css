@@ -77,3 +77,11 @@ body {
   color: #fff;
   text-decoration: none;
 }
+
+.profile-pic {
+  border-radius: 50%;
+}
+
+.extra-margin {
+  margin: 20px;
+}

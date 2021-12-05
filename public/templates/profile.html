@@ -10,5 +10,8 @@
 {% endblock %}
 
 {% block main %}
-<h1><strong>Name:</strong> {{ user }}</h1>
+<img class="profile-pic extra-margin" src={{ picture_url }} alt="">
+<h3><strong>Name:</strong> {{ user }}</h3>
+<h3><strong>Email:</strong> {{ email }}</h3>
+<a href="delete-profile" onclick="return confirm('Are you sure you want to delete your profile?')" class="extra-margin btn btn-lg btn-danger fw-bold">Delete Profile</a>
 {% endblock %}

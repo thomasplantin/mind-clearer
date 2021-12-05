@@ -1,8 +1,9 @@
 from flask import Flask, session, abort, render_template, redirect, flash, request, jsonify
+# from flask_pymongo import PyMongo
 from pymongo import MongoClient
 from pip._vendor import cachecontrol
 from env import config
-from datetime import date
+from datetime import datetime, date
 from functools import wraps
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
@@ -15,11 +16,18 @@ import json
 template_dir = os.path.abspath("public/templates")
 static_dir = os.path.abspath("public/static")
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-app.secret_key = "thomasplantin"
+app.secret_key = config.APP_SECRET
+
+# MongoDB setup
+cluster = MongoClient(config.MONGO_CONNECTION_STRING)
+db = cluster[config.MONGO_DB]
+users_collection = db[config.MONGO_USERS_COLLECTION]
+thoughts_collection = db[config.MONGO_THOUGHTS_COLLECTION]
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-client_secrets_file = os.path.join(os.path.abspath("env"), "client_secret.json")
+client_secrets_file = os.path.join(
+    os.path.abspath("env"), "client_secret.json")
 
 with open("./env/client_secret.json", "r") as file:
     client_secrets = json.load(file)
@@ -28,34 +36,11 @@ GOOGLE_CLIENT_ID = client_secrets["web"]["client_id"]
 flow = Flow.from_client_secrets_file(
     client_secrets_file=client_secrets_file,
     scopes=["https://www.googleapis.com/auth/userinfo.profile",
-        "https://www.googleapis.com/auth/userinfo.email", 
-        "openid"
-    ],
+            "https://www.googleapis.com/auth/userinfo.email",
+            "openid"
+            ],
     redirect_uri="http://127.0.0.1:{}/callback".format(config.PORT)
 )
-
-
-def get_db():
-    client = MongoClient("mongodb+srv:// \
-        {}: \
-        {}@ \
-        {}.vedft.mongodb.net/ \
-        {}?retryWrites=true&w=majority".format(
-        config.MONGO_USERNAME,
-        config.MONGO_PASSWORD,
-        config.MONGO_CLUSTER,
-        config.MONGO_DB
-    )
-    )
-    db = client.test
-    # client = MongoClient(host='mongo_host',
-    #                     port=27017,
-    #                     user=config.MONGO_USERNAME,
-    #                     password=config.MONGO_PASSWORD,
-    #                     authSource='admin'
-    # )
-    # db = client[config.MONGO_CLUSTER]
-    return db
 
 
 # Define decorator
@@ -63,7 +48,7 @@ def login_required(function):
     # Renaming wrapper with the function name to avoid overwritting existing endpoint function
     @wraps(function)
     def wrapper(*args, **kwargs):
-        if "google_id" not in session:
+        if "_id" not in session:
             flash("You need to login first")
             return abort(401)  # Return HTTP status code "401 - Unauthorized"
         else:
@@ -88,7 +73,8 @@ def callback():
     credentials = flow.credentials
     request_session = requests.session()
     cached_session = cachecontrol.CacheControl(request_session)
-    token_request = google.auth.transport.requests.Request(session=cached_session)
+    token_request = google.auth.transport.requests.Request(
+        session=cached_session)
 
     id_info = id_token.verify_oauth2_token(
         id_token=credentials._id_token,
@@ -96,10 +82,25 @@ def callback():
         audience=GOOGLE_CLIENT_ID
     )
 
-    session["google_id"] = id_info.get("sub")
-    session["full_name"] = id_info.get("name")
+    if not users_collection.count_documents({"_id": id_info.get('sub')}):
+        new_user = {
+            "_id": id_info.get('sub'),
+            "first_name": id_info.get('given_name'),
+            "last_name": id_info.get('family_name'),
+            "full_name": id_info.get('name'),
+            "email": id_info.get('email'),
+            "date_joined": datetime.now(),
+            "picture_url": id_info.get('picture')
+        }
+        users_collection.insert_one(new_user)
+    else:
+        print("User already exists.")
+
+    session["_id"] = id_info.get('sub')
+    session["full_name"] = id_info.get('name')
     session["first_name"] = id_info.get('given_name')
     session["last_name"] = id_info.get('family_name')
+    session["email"] = id_info.get('email')
     session["picture_url"] = id_info.get('picture')
     return redirect("/home")
 
@@ -135,27 +136,22 @@ def get_thoughts():
 @app.route("/profile")
 @login_required
 def get_profile():
-    return render_template("profile.html",  user=session["full_name"])
+    return render_template("profile.html",  user=session["full_name"], picture_url=session["picture_url"], email=session["email"])
 
+
+@app.route("/delete-profile")
+@login_required
+def delete_profile():
+    users_collection.delete_one({"_id": session["_id"]})
+    thoughts_collection.delete_many({"_id": session["_id"]})
+    session.clear()
+    return render_template("index.html")
 
 @app.route("/logout")
 @login_required
 def logout():
     session.clear()
     return render_template("index.html")
-
-# @app.route("/")
-# def index():
-#     db = get_db()
-#     db.command('ping')
-#     return "<h1>Mind Clearer Root...</h1>"
-
-# @app.route("/thoughts")
-# def fetch_thoughts():
-#     db = get_db()
-#     _users =  db.users_tb.find()
-#     users = [{"id": user["id"], "username": user["username"], "thoughts": user["thoughts"]} for user in _users]
-#     return jsonify({"users": users})
 
 
 if __name__ == "__main__":
